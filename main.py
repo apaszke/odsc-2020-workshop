@@ -93,6 +93,7 @@ if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 else:
     model = model.RNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.dropout).to(device)
+model = torch.jit.script(model)
 
 ###############################################################################
 # Training code
@@ -162,6 +163,9 @@ def train():
         else:
             hidden = repackage_hidden(hidden)
             output, hidden = model(data, hidden)
+        if i > 0:
+            print(torch.jit.last_executed_optimized_graph())
+            import sys; sys.exit(0)
         loss = F.nll_loss(output, targets)
         loss.backward()
 

@@ -3,6 +3,8 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
+from typing import List, Tuple
 
 
 class LSTMCell(nn.Module):
@@ -21,7 +23,7 @@ class LSTMCell(nn.Module):
         nn.init.uniform_(self.weight_hh, -stdv, stdv)
         nn.init.constant_(self.bias, 0)
 
-    def forward(self, input, state):
+    def forward(self, input, state: Tuple[Tensor, Tensor]):
         hx, cx = state
         gates = (torch.mm(input, self.weight_ih.t()) +
                  torch.mm(hx, self.weight_hh.t()) + self.bias)
@@ -43,7 +45,7 @@ class LSTMLayer(nn.Module):
         super().__init__()
         self.cell = LSTMCell(*cell_args)
 
-    def forward(self, input, state):
+    def forward(self, input, state: Tuple[Tensor, Tensor]):
         outputs = []
         for i in input.unbind(0):
             state = self.cell(i, state)
@@ -61,8 +63,8 @@ class LSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.num_layers = num_layers
 
-    def forward(self, input, states):
-        output_states = []
+    def forward(self, input, states: Tuple[Tensor, Tensor]):
+        output_states: List[Tuple[Tensor, Tensor]] = []
         output = input
         for i, layer in enumerate(self.layers):
             state = states[i]
@@ -98,7 +100,7 @@ class RNNModel(nn.Module):
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, input, hidden):
+    def forward(self, input, hidden: Tuple[Tensor, Tensor]):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
@@ -106,7 +108,8 @@ class RNNModel(nn.Module):
         decoded = decoded.view(-1, self.ntoken)
         return F.log_softmax(decoded, dim=1), hidden
 
-    def init_hidden(self, bsz):
+    @torch.jit.export
+    def init_hidden(self, bsz: int):
         weight = self.decoder.weight
         return (weight.new_zeros(self.nlayers, bsz, self.nhid),
                 weight.new_zeros(self.nlayers, bsz, self.nhid))
