@@ -88,7 +88,7 @@ test_data = batchify(corpus.test, eval_batch_size)
 # Build the model
 ###############################################################################
 
-ntokens = len(corpus.dictionary)
+ntokens = corpus.ntokens
 if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 else:
@@ -128,7 +128,6 @@ def evaluate(data_source):
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0.
-    ntokens = len(corpus.dictionary)
     if args.model != 'Transformer':
         hidden = model.init_hidden(eval_batch_size)
     with torch.no_grad():
@@ -136,7 +135,7 @@ def evaluate(data_source):
             data, targets = get_batch(data_source, i)
             if args.model == 'Transformer':
                 output = model(data)
-                output = output.view(-1, ntokens)
+                output = output.view(-1, corpus.ntokens)
             else:
                 output, hidden = model(data, hidden)
                 hidden = repackage_hidden(hidden)
@@ -150,7 +149,6 @@ def train():
     optimizer = optim.SGD(model.parameters(), lr=lr)
     total_loss = 0.
     start_time = time.time()
-    ntokens = len(corpus.dictionary)
     if args.model != 'Transformer':
         hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
@@ -160,7 +158,7 @@ def train():
         model.zero_grad()
         if args.model == 'Transformer':
             output = model(data)
-            output = output.view(-1, ntokens)
+            output = output.view(-1, corpus.ntokens)
         else:
             hidden = repackage_hidden(hidden)
             output, hidden = model(data, hidden)

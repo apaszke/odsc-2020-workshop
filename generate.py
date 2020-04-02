@@ -38,12 +38,11 @@ with open(args.checkpoint, 'rb') as f:
 model.eval()
 
 corpus = data.Corpus(args.data)
-ntokens = len(corpus.dictionary)
 
 is_transformer_model = model.model_type == 'Transformer'
 if not is_transformer_model:
     hidden = model.init_hidden(1)
-input = torch.randint(ntokens, (1, 1), dtype=torch.long).to(device)
+input = torch.randint(corpus.ntokens, (1, 1), dtype=torch.long).to(device)
 
 with torch.no_grad():  # no tracking history
     line = []

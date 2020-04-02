@@ -50,7 +50,7 @@ class Corpus:
     def __init__(self, path):
         # Tokenize the data
         data, dictionary = tokenize(path)
-        self.dictionary, self.idx2word = dictionary.word2idx, dictionary.idx2word
+        self.idx2word = dictionary.idx2word
         # Split input training, validation and test sets
         train_start, train_end = 0, int(len(data) * self.train_percent)
         val_start, val_end = train_end, train_end + int(len(data) * self.val_percent)
@@ -58,3 +58,7 @@ class Corpus:
         self.train = data[train_start:train_end]
         self.valid = data[val_start:val_end]
         self.test = data[test_start:]
+
+    @property
+    def ntokens(self):
+        return len(self.idx2word)
