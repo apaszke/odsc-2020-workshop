@@ -12,7 +12,7 @@ import torch.onnx
 import data
 import model
 
-parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
+parser = argparse.ArgumentParser(description='PyTorch RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/lorem_ipsum.txt',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
@@ -206,16 +206,22 @@ try:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
             lr /= 4.0
 except KeyboardInterrupt:
-    print('-' * 89)
+    print('\n' + '-' * 89)
     print('Exiting from training early')
 
-# Load the best saved model.
-with open(args.save, 'rb') as f:
-    model = torch.load(f)
+try:
+    # Load the best saved model.
+    with open(args.save, 'rb') as f:
+        model = torch.load(f)
 
-# Run on test data.
-test_loss = evaluate(test_data)
-print('=' * 89)
-print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-    test_loss, math.exp(test_loss)))
-print('=' * 89)
+    # Run on test data.
+    test_loss = evaluate(test_data)
+    print('=' * 89)
+    print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+        test_loss, math.exp(test_loss)))
+    print('=' * 89)
+except KeyboardInterrupt:
+    print('\n' + '-' * 89)
+    print('Skipping test evaluation')
+except FileNotFoundError:
+    pass
