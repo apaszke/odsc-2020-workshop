@@ -93,6 +93,7 @@ if args.model == 'Transformer':
     model = model.TransformerModel(ntokens, args.emsize, args.nhead, args.nhid, args.nlayers, args.dropout).to(device)
 else:
     model = model.RNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.dropout).to(device)
+model = torch.jit.script(model)
 
 ###############################################################################
 # Training code
@@ -200,7 +201,7 @@ try:
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
-                torch.save(model, f)
+                torch.jit.save(model, f)
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
@@ -212,7 +213,7 @@ except KeyboardInterrupt:
 try:
     # Load the best saved model.
     with open(args.save, 'rb') as f:
-        model = torch.load(f)
+        model = torch.jit.load(f)
 
     # Run on test data.
     test_loss = evaluate(test_data)

@@ -4,12 +4,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import torch.utils.cpp_extension as cpp
+from typing import Tuple
+from torch import Tensor
 
-cpp_lstms = cpp.load(name='lstms',
-                     sources=['cpp/lstm.cpp'],
-                     extra_cflags=['-O3'],
-                     verbose=True)
+LSTMState = Tuple[Tensor, Tensor]
 
 
 class LSTMCell(nn.Module):
@@ -28,8 +26,21 @@ class LSTMCell(nn.Module):
         nn.init.uniform_(self.weight_hh, -stdv, stdv)
         nn.init.constant_(self.bias, 0)
 
-    def forward(self, input, state):
-        return cpp_lstms.lstm_cell(input, state, self.weight_ih, self.weight_hh, self.bias)
+    def forward(self, input, state: LSTMState):
+        hx, cx = state
+        gates = (torch.mm(input, self.weight_ih.t()) +
+                 torch.mm(hx, self.weight_hh.t()) + self.bias)
+        ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
+
+        ingate = torch.sigmoid(ingate)
+        forgetgate = torch.sigmoid(forgetgate)
+        cellgate = torch.tanh(cellgate)
+        outgate = torch.sigmoid(outgate)
+
+        cy = (forgetgate * cx) + (ingate * cellgate)
+        hy = outgate * torch.tanh(cy)
+
+        return hy, cy
 
 
 class LSTMLayer(nn.Module):
@@ -37,8 +48,12 @@ class LSTMLayer(nn.Module):
         super().__init__()
         self.cell = LSTMCell(*cell_args)
 
-    def forward(self, input, state):
-        return cpp_lstms.lstm(input, state, self.cell.weight_ih, self.cell.weight_hh, self.cell.bias)
+    def forward(self, input, state: LSTMState):
+        outputs = []
+        for i in input.unbind(0):
+            state = self.cell(i, state)
+            outputs.append(state[0])
+        return torch.stack(outputs), state
 
 
 class LSTM(nn.Module):
@@ -51,8 +66,8 @@ class LSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.num_layers = num_layers
 
-    def forward(self, input, states):
-        output_states = []
+    def forward(self, input, states: LSTMState):
+        output_states: List[LSTMState] = []
         output = input
         for i, layer in enumerate(self.layers):
             output, out_state = layer(output, (states[0][i], states[1][i]))

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rnn import LSTM
+from rnn import LSTM, LSTMState
 
 
 class RNNModel(nn.Module):
@@ -30,7 +30,7 @@ class RNNModel(nn.Module):
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, input, hidden):
+    def forward(self, input, hidden: LSTMState):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
@@ -38,10 +38,16 @@ class RNNModel(nn.Module):
         decoded = decoded.view(-1, self.ntoken)
         return F.log_softmax(decoded, dim=1), hidden
 
-    def init_hidden(self, bsz):
+    @torch.jit.export
+    def init_hidden(self, bsz: int):
         weight = self.decoder.weight
         return (weight.new_zeros(self.nlayers, bsz, self.nhid),
                 weight.new_zeros(self.nlayers, bsz, self.nhid))
+
+# builtin LSTM - 14ms/batch
+# Python LSTM - 38ms/batch
+# C++ LSTM - 34ms/batch
+# TorchScript LSTM - 18s/batch
 
 ################################################################################
 # TransformerModel
