@@ -4,6 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch import Tensor
+from typing import Optional
+
 from rnn import LSTM, LSTMState
 
 
@@ -100,6 +103,7 @@ class PositionalEncoding(nn.Module):
 
 class TransformerModel(nn.Module):
     """Container module with an encoder, a recurrent or transformer module, and a decoder."""
+    src_mask: Optional[Tensor]
 
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
         super(TransformerModel, self).__init__()
@@ -118,7 +122,7 @@ class TransformerModel(nn.Module):
 
         self.init_weights()
 
-    def _generate_square_subsequent_mask(self, sz):
+    def _generate_square_subsequent_mask(self, sz: int):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
@@ -129,10 +133,16 @@ class TransformerModel(nn.Module):
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, src, has_mask=True):
+    def forward(self, src, has_mask: bool = True):
         if has_mask:
             device = src.device
-            if self.src_mask is None or self.src_mask.size(0) != len(src):
+            refresh_mask = False
+            mask = self.src_mask
+            if mask is None:
+                refresh_mask = True
+            else:
+                refresh_mask = len(mask) != len(src)
+            if refresh_mask:
                 mask = self._generate_square_subsequent_mask(len(src)).to(device)
                 self.src_mask = mask
         else:
