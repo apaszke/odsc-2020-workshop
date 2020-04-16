@@ -17,13 +17,17 @@ def measure():
 
 @torch.no_grad()
 def main():
-    model = TransformerModel(ntoken=100, ninp=8000, nhead=8, nhid=10000, nlayers=1).to('cuda')
+    model = TransformerModel(ntoken=100, ninp=8000, nhead=8,
+                             nhid=10000, nlayers=1).to('cuda')
     time_steps = 64
     batch_size = 128
     input = torch.zeros(time_steps, batch_size, dtype=torch.int64, device='cuda')
+    output = model(input)
+    torch.cuda.synchronize()
     with measure():
-        output = model(input)
-        print(output[0, 0])
+        for i in range(4):
+            output = model(input)
+        torch.cuda.synchronize()
 
 
 if __name__ == '__main__':

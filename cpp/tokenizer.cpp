@@ -39,6 +39,7 @@ struct hash<StringView> {
 }
 
 std::pair<std::vector<uint64_t>, std::vector<std::string>> tokenize(std::string path) {
+
   std::unordered_map<StringView, uint64_t> vocabulary {
     std::make_pair(StringView{"<eos>", 5}, 0)
   };
@@ -75,5 +76,5 @@ std::pair<std::vector<uint64_t>, std::vector<std::string>> tokenize(std::string 
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("tokenize", tokenize);
+  m.def("fast_tokenize", tokenize);
 }

@@ -1,47 +1,13 @@
 import os
 from io import open
 import torch
+import torch.utils.cpp_extension as cpp
 
+from benchmark import measure
 
-class Dictionary:
-    def __init__(self):
-        self.word2idx = {}
-        self.idx2word = []
-
-    def add_word(self, word):
-        if word not in self.word2idx:
-            self.idx2word.append(word)
-            self.word2idx[word] = len(self.idx2word) - 1
-        return self.word2idx[word]
-
-    def __len__(self):
-        return len(self.idx2word)
-
-
-def tokenize(path):
-    """Tokenizes a text file."""
-    assert os.path.exists(path)
-    dictionary = Dictionary()
-    # Add words to the dictionary
-    with open(path, 'r', encoding="utf8") as f:
-        for line in f:
-            words = line.split() + ['<eos>']
-            for word in words:
-                dictionary.add_word(word)
-
-    # Tokenize file content
-    with open(path, 'r', encoding="utf8") as f:
-        idss = []
-        for line in f:
-            words = line.split() + ['<eos>']
-            ids = []
-            for word in words:
-                ids.append(dictionary.word2idx[word])
-            idss.append(torch.tensor(ids).type(torch.int64))
-        ids = torch.cat(idss)
-
-    return ids, dictionary
-
+cpp_tokenizer = cpp.load(name='tokenizer',
+                         sources=['cpp/tokenizer.cpp'],
+                         extra_cflags=['-O3'])
 
 class Corpus:
     # 90% data used for training, 10% for validation, 10% for test
@@ -49,8 +15,9 @@ class Corpus:
 
     def __init__(self, path):
         # Tokenize the data
-        data, dictionary = tokenize(path)
-        self.idx2word = dictionary.idx2word
+        data, dictionary = cpp_tokenizer.fast_tokenize(path)
+        data = torch.tensor(data, dtype=torch.int64)
+        self.idx2word = dictionary
         # Split input training, validation and test sets
         train_start, train_end = 0, int(len(data) * self.train_percent)
         val_start, val_end = train_end, train_end + int(len(data) * self.val_percent)

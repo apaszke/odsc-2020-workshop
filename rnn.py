@@ -4,6 +4,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import torch.utils.cpp_extension as cpp
+
+cpp_lstms = cpp.load(name='lstms',
+                     sources=['cpp/lstm.cpp'],
+                     extra_cflags=['-O3'],
+                     verbose=True)
+
 
 class LSTMCell(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -22,20 +29,7 @@ class LSTMCell(nn.Module):
         nn.init.constant_(self.bias, 0)
 
     def forward(self, input, state):
-        hx, cx = state
-        gates = (torch.mm(input, self.weight_ih.t()) +
-                 torch.mm(hx, self.weight_hh.t()) + self.bias)
-        ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
-
-        ingate = torch.sigmoid(ingate)
-        forgetgate = torch.sigmoid(forgetgate)
-        cellgate = torch.tanh(cellgate)
-        outgate = torch.sigmoid(outgate)
-
-        cy = (forgetgate * cx) + (ingate * cellgate)
-        hy = outgate * torch.tanh(cy)
-
-        return hy, cy
+        return cpp_lstms.lstm_cell(input, state, self.weight_ih, self.weight_hh, self.bias)
 
 
 class LSTMLayer(nn.Module):
@@ -44,11 +38,7 @@ class LSTMLayer(nn.Module):
         self.cell = LSTMCell(*cell_args)
 
     def forward(self, input, state):
-        outputs = []
-        for i in input.unbind(0):
-            state = self.cell(i, state)
-            outputs.append(state[0])
-        return torch.stack(outputs), state
+        return cpp_lstms.lstm(input, state, self.cell.weight_ih, self.cell.weight_hh, self.cell.bias)
 
 
 class LSTM(nn.Module):
